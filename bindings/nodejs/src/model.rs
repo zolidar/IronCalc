@@ -5,6 +5,7 @@ use serde::Serialize;
 
 use ironcalc::{
   base::{
+    cell::CellValue,
     expressions::types::Area,
     types::{CellType, Color, Style},
     Model as BaseModel,
@@ -138,6 +139,33 @@ impl Model {
       .model
       .get_formatted_cell_value(sheet, row, column)
       .map_err(to_js_error)
+  }
+
+  /// PROTOTYPE — raw CellValue for parity testing (not upstream).
+  #[napi(js_name = "getCellValue")]
+  pub fn get_cell_value(
+    &'_ self,
+    env: Env,
+    sheet: u32,
+    row: i32,
+    column: i32,
+  ) -> Result<Unknown<'_>> {
+    let value = self
+      .model
+      .get_cell_value_by_index(sheet, row, column)
+      .map_err(to_js_error)?;
+    let json = match value {
+      CellValue::None => serde_json::Value::Null,
+      CellValue::String(s) => serde_json::Value::String(s),
+      CellValue::Number(n) => match serde_json::Number::from_f64(n) {
+        Some(num) => serde_json::Value::Number(num),
+        None => serde_json::Value::String(n.to_string()),
+      },
+      CellValue::Boolean(b) => serde_json::Value::Bool(b),
+    };
+    env
+      .to_js_value(&json)
+      .map_err(|e| to_js_error(e.to_string()))
   }
 
   #[napi]
