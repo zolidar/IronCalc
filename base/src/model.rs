@@ -1120,7 +1120,16 @@ impl<'a> Model<'a> {
                         },
                     );
                 }
-                FormulaValue::Number(*value)
+                // PROTOTYPE parity with svc-model CustomExcelCompiler:
+                // snap |x| < 1e-6 to 0, then round to 12 decimal places.
+                let mut v = *value;
+                if v.abs() < 1e-6 {
+                    v = 0.0;
+                } else {
+                    let factor = 1e12_f64;
+                    v = (v * factor).round() / factor;
+                }
+                FormulaValue::Number(v)
             }
             CalcResult::String(value) => FormulaValue::Text(value.clone()),
             CalcResult::Boolean(value) => FormulaValue::Boolean(*value),
