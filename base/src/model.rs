@@ -237,6 +237,18 @@ pub struct CellIndex {
 }
 
 impl<'a> Model<'a> {
+    /// Snap near-zero and round like svc-model CustomExcelCompiler._evaluate.
+    /// Must apply both when storing a cell and when returning a value to
+    /// in-pass dependents — otherwise TRUNC(G3*G6) can see unrounded G6 while
+    /// getCellValue(G6) shows the rounded value.
+    fn normalize_excel_number(value: f64) -> f64 {
+        if value.abs() < 1e-6 {
+            0.0
+        } else {
+            let factor = 1e12_f64;
+            (value * factor).round() / factor
+        }
+    }
     pub(crate) fn get_next_variable_id(&mut self) -> usize {
         let id = self.last_variable_id;
         self.last_variable_id += 1;
@@ -1122,14 +1134,7 @@ impl<'a> Model<'a> {
                 }
                 // PROTOTYPE parity with svc-model CustomExcelCompiler:
                 // snap |x| < 1e-6 to 0, then round to 12 decimal places.
-                let mut v = *value;
-                if v.abs() < 1e-6 {
-                    v = 0.0;
-                } else {
-                    let factor = 1e12_f64;
-                    v = (v * factor).round() / factor;
-                }
-                FormulaValue::Number(v)
+                FormulaValue::Number(Self::normalize_excel_number(*value))
             }
             CalcResult::String(value) => FormulaValue::Text(value.clone()),
             CalcResult::Boolean(value) => FormulaValue::Boolean(*value),
@@ -1556,6 +1561,13 @@ impl<'a> Model<'a> {
                 self.cells.insert(key, CellState::Evaluated);
 
                 // return the result of the evaluation.
+                // Normalize numbers so in-pass dependents see the same value as
+                // set_cells_with_result stored (CustomExcelCompiler rounds on every
+                // _evaluate, including dependency fetches).
+                let result = match result {
+                    CalcResult::Number(v) => CalcResult::Number(Self::normalize_excel_number(v)),
+                    other => other,
+                };
                 match result {
                     CalcResult::Array(a) => {
                         // The cell ended up holding an array. Coerce it to a scalar so
