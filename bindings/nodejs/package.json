@@ -54,7 +54,7 @@
   },
   "description": "Zolidar fork of IronCalc Node.js bindings",
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://npm.pkg.github.com",
+    "tag": "latest"
   }
 }
-
