@@ -556,6 +556,22 @@ jobs:
             exit 1
           fi
 
+      # 0.8.3-zolidar.1 is a semver prerelease; npm 11+ requires an explicit dist-tag.
+      # napi create-npm-dirs only copies publishConfig.registry/access, not tag.
+      - name: Set publishConfig.tag on platform packages
+        run: |
+          set -euo pipefail
+          for pkg in npm/*/package.json; do
+            node -e '
+              const fs = require("fs");
+              const path = process.argv[1];
+              const json = JSON.parse(fs.readFileSync(path, "utf8"));
+              json.publishConfig = { ...(json.publishConfig || {}), tag: "latest" };
+              fs.writeFileSync(path, JSON.stringify(json, null, 2) + "\n");
+            ' "$pkg"
+            echo "tagged: $pkg"
+          done
+
       - name: Publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -567,7 +583,7 @@ jobs:
           elif [ -n "$REMOTE" ] && [ "$LOCAL" = "$REMOTE" ]; then
             echo "@zolidar/ironcalc-nodejs $LOCAL is already published, skipping"
           else
-            npm publish
+            npm publish --tag latest
             echo "Published @zolidar/ironcalc-nodejs@$LOCAL to GitHub Packages"
           fi
 
