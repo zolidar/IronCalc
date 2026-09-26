@@ -1,6 +1,6 @@
 {
   "name": "@zolidar/ironcalc-nodejs-linux-arm-gnueabihf",
-  "version": "0.8.3-zolidar.1",
+  "version": "0.8.3-zolidar.2",
   "os": [
     "linux"
   ],

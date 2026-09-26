@@ -599,7 +599,7 @@ jobs:
             exit 1
           fi
 
-      # 0.8.3-zolidar.1 is a semver prerelease; npm 11+ requires an explicit dist-tag.
+      # Fork versions (0.8.3-zolidar.N) are semver prereleases; npm 11+ requires an explicit dist-tag.
       # napi create-npm-dirs only copies publishConfig.registry/access, not tag.
       - name: Set publishConfig.tag on platform packages
         run: |
