@@ -1,6 +1,6 @@
 {
   "name": "@zolidar/ironcalc-nodejs-win32-arm64-msvc",
-  "version": "0.8.3-zolidar.1",
+  "version": "0.8.3-zolidar.2",
   "os": [
     "win32"
   ],
