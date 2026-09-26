@@ -460,17 +460,59 @@ jobs:
           name: bindings-universal-apple-darwin
           path: bindings/nodejs/${{ env.APP_NAME }}.*.node
           if-no-files-found: error
+  # npm silently falls back to token auth when the trusted publishing (OIDC) exchange fails,
+  # so prove every package's trusted publisher works before anything is published.
+  check-npm-trust:
+    name: Check npm trusted publishing
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: ./bindings/nodejs
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Exchange a GitHub OIDC token for each package
+        run: |
+          set -euo pipefail
+          id_token="$(curl -fsS -G \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            --data-urlencode "audience=npm:registry.npmjs.org" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq -r .value)"
+          echo "::add-mask::$id_token"
+          failed=0
+          for pkg in package.json npm/*/package.json; do
+            name="$(jq -r .name "$pkg")"
+            # Same endpoint npm publish uses (npm/cli lib/utils/oidc.js); the response token is discarded.
+            status="$(curl -sS -o response.json -w '%{http_code}' -X POST \
+              -H "Authorization: Bearer $id_token" \
+              "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/${name/\//%2f}")"
+            if [[ "$status" == 2?? ]]; then
+              echo "OK: $name"
+            else
+              echo "FAILED ($status): $name: $(jq -r '.message // .error // empty' response.json 2>/dev/null)"
+              failed=1
+            fi
+            rm -f response.json
+          done
+          if [ "$failed" -ne 0 ]; then
+            echo "Trusted publishing is not configured for every package; see npm trust github in bindings/nodejs/README.md."
+            exit 1
+          fi
   publish-nodejs:
     name: Publish @zolidar/ironcalc-nodejs
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # npm provenance
+      # npm trusted publishing (OIDC) and provenance
       id-token: write
     defaults:
       run:
         working-directory: ./bindings/nodejs
     needs:
+      - check-npm-trust
       - test-macOS-windows-binding
       - test-linux-x64-gnu-binding
       # - test-linux-x64-musl-binding
@@ -575,7 +617,7 @@ jobs:
 
       - name: Publish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # Auth is npm trusted publishing (OIDC), exchanged per package by each npm publish.
           # Env rather than a CLI flag so it also covers the platform packages napi prepublish publishes.
           NPM_CONFIG_PROVENANCE: "true"
         run: |
