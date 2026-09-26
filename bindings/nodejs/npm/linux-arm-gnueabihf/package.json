@@ -21,6 +21,7 @@
     "directory": "bindings/nodejs/npm/linux-arm-gnueabihf"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
   }
 }

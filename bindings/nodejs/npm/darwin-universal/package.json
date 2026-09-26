@@ -18,6 +18,7 @@
     "directory": "bindings/nodejs/npm/darwin-universal"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
   }
 }

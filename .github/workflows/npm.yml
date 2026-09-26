@@ -13,7 +13,7 @@ permissions:
   workflow_dispatch:
     inputs:
       publish:
-        description: "Publish Node bindings to GitHub Packages"
+        description: "Publish Node bindings to npm"
         required: true
         type: boolean
 defaults:
@@ -465,7 +465,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
+      # npm provenance
+      id-token: write
     defaults:
       run:
         working-directory: ./bindings/nodejs
@@ -486,7 +487,7 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: bindings/nodejs/pnpm-lock.yaml
-          registry-url: https://npm.pkg.github.com
+          registry-url: https://registry.npmjs.org
           scope: '@zolidar'
 
       - name: Enable pnpm (corepack)
@@ -574,16 +575,18 @@ jobs:
 
       - name: Publish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # Env rather than a CLI flag so it also covers the platform packages napi prepublish publishes.
+          NPM_CONFIG_PROVENANCE: "true"
         run: |
           LOCAL="$(npm pkg get version | tr -d '"')"
-          REMOTE="$(npm view "@zolidar/ironcalc-nodejs@${LOCAL}" version --registry=https://npm.pkg.github.com 2>/dev/null || true)"
+          REMOTE="$(npm view "@zolidar/ironcalc-nodejs@${LOCAL}" version --registry=https://registry.npmjs.org 2>/dev/null || true)"
           if [ "$RELEASE" != "true" ]; then
             echo "Not a release, skipping publish"
           elif [ -n "$REMOTE" ] && [ "$LOCAL" = "$REMOTE" ]; then
             echo "@zolidar/ironcalc-nodejs $LOCAL is already published, skipping"
           else
             npm publish --tag latest
-            echo "Published @zolidar/ironcalc-nodejs@$LOCAL to GitHub Packages"
+            echo "Published @zolidar/ironcalc-nodejs@$LOCAL to npm"
           fi
 

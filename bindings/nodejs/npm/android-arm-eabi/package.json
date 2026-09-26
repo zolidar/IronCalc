@@ -21,6 +21,7 @@
     "directory": "bindings/nodejs/npm/android-arm-eabi"
   },
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
   }
 }
