@@ -5,27 +5,20 @@ use crate::{
     calc_result::CalcResult, expressions::parser::Node, expressions::token::Error, model::Model,
 };
 
+use super::sum_of_squared_deviations;
+
 impl<'a> Model<'a> {
     pub(crate) fn fn_var_p(&mut self, args: &[Node], cell: CellReferenceIndex) -> CalcResult {
         if args.is_empty() {
             return CalcResult::new_args_number_error(cell);
         }
 
-        let mut sum = 0.0;
-        let mut sumsq = 0.0;
-        let mut count: u64 = 0;
-
-        #[inline]
-        fn accumulate(sum: &mut f64, sumsq: &mut f64, count: &mut u64, value: f64) {
-            *sum += value;
-            *sumsq += value * value;
-            *count += 1;
-        }
+        let mut values: Vec<f64> = Vec::new();
 
         for arg in args {
             match self.evaluate_node_in_context(arg, cell) {
                 CalcResult::Number(value) => {
-                    accumulate(&mut sum, &mut sumsq, &mut count, value);
+                    values.push(value);
                 }
                 CalcResult::Range { left, right } => {
                     if left.sheet != right.sheet {
@@ -74,7 +67,7 @@ impl<'a> Model<'a> {
                                 column,
                             }) {
                                 CalcResult::Number(value) => {
-                                    accumulate(&mut sum, &mut sumsq, &mut count, value);
+                                    values.push(value);
                                 }
                                 error @ CalcResult::Error { .. } => return error,
                                 _ => {
@@ -89,7 +82,7 @@ impl<'a> Model<'a> {
                         for value in row {
                             match value {
                                 ArrayNode::Number(value) => {
-                                    accumulate(&mut sum, &mut sumsq, &mut count, value);
+                                    values.push(value);
                                 }
                                 ArrayNode::Error(error) => {
                                     return CalcResult::Error {
@@ -112,7 +105,7 @@ impl<'a> Model<'a> {
             }
         }
 
-        if count == 0 {
+        if values.is_empty() {
             return CalcResult::new_error(
                 Error::DIV,
                 cell,
@@ -120,12 +113,8 @@ impl<'a> Model<'a> {
             );
         }
 
-        let n = count as f64;
-        let mut var = (sumsq - (sum * sum) / n) / n;
-
-        if var < 0.0 && var > -1e-12 {
-            var = 0.0;
-        }
+        let n = values.len() as f64;
+        let var = sum_of_squared_deviations(&values) / n;
 
         CalcResult::Number(var)
     }
@@ -135,21 +124,12 @@ impl<'a> Model<'a> {
             return CalcResult::new_args_number_error(cell);
         }
 
-        let mut sum = 0.0;
-        let mut sumsq = 0.0;
-        let mut count: u64 = 0;
-
-        #[inline]
-        fn accumulate(sum: &mut f64, sumsq: &mut f64, count: &mut u64, value: f64) {
-            *sum += value;
-            *sumsq += value * value;
-            *count += 1;
-        }
+        let mut values: Vec<f64> = Vec::new();
 
         for arg in args {
             match self.evaluate_node_in_context(arg, cell) {
                 CalcResult::Number(value) => {
-                    accumulate(&mut sum, &mut sumsq, &mut count, value);
+                    values.push(value);
                 }
                 CalcResult::Range { left, right } => {
                     if left.sheet != right.sheet {
@@ -198,7 +178,7 @@ impl<'a> Model<'a> {
                                 column,
                             }) {
                                 CalcResult::Number(value) => {
-                                    accumulate(&mut sum, &mut sumsq, &mut count, value);
+                                    values.push(value);
                                 }
                                 error @ CalcResult::Error { .. } => return error,
                                 _ => {
@@ -213,7 +193,7 @@ impl<'a> Model<'a> {
                         for value in row {
                             match value {
                                 ArrayNode::Number(value) => {
-                                    accumulate(&mut sum, &mut sumsq, &mut count, value);
+                                    values.push(value);
                                 }
                                 ArrayNode::Error(error) => {
                                     return CalcResult::Error {
@@ -236,7 +216,7 @@ impl<'a> Model<'a> {
             }
         }
 
-        if count <= 1 {
+        if values.len() <= 1 {
             return CalcResult::new_error(
                 Error::DIV,
                 cell,
@@ -244,12 +224,8 @@ impl<'a> Model<'a> {
             );
         }
 
-        let n = count as f64;
-        let mut var = (sumsq - (sum * sum) / n) / (n - 1.0);
-
-        if var < 0.0 && var > -1e-12 {
-            var = 0.0;
-        }
+        let n = values.len() as f64;
+        let var = sum_of_squared_deviations(&values) / (n - 1.0);
 
         CalcResult::Number(var)
     }
@@ -259,21 +235,12 @@ impl<'a> Model<'a> {
             return CalcResult::new_args_number_error(cell);
         }
 
-        let mut sum = 0.0;
-        let mut sumsq = 0.0;
-        let mut count: u64 = 0;
-
-        #[inline]
-        fn accumulate(sum: &mut f64, sumsq: &mut f64, count: &mut u64, value: f64) {
-            *sum += value;
-            *sumsq += value * value;
-            *count += 1;
-        }
+        let mut values: Vec<f64> = Vec::new();
 
         for arg in args {
             match self.evaluate_node_in_context(arg, cell) {
                 CalcResult::Number(value) => {
-                    accumulate(&mut sum, &mut sumsq, &mut count, value);
+                    values.push(value);
                 }
                 CalcResult::Range { left, right } => {
                     if left.sheet != right.sheet {
@@ -322,14 +289,14 @@ impl<'a> Model<'a> {
                                 column,
                             }) {
                                 CalcResult::Number(value) => {
-                                    accumulate(&mut sum, &mut sumsq, &mut count, value);
+                                    values.push(value);
                                 }
                                 CalcResult::String(_) => {
-                                    accumulate(&mut sum, &mut sumsq, &mut count, 0.0);
+                                    values.push(0.0);
                                 }
                                 CalcResult::Boolean(value) => {
                                     let val = if value { 1.0 } else { 0.0 };
-                                    accumulate(&mut sum, &mut sumsq, &mut count, val);
+                                    values.push(val);
                                 }
                                 error @ CalcResult::Error { .. } => return error,
                                 _ => {
@@ -344,7 +311,7 @@ impl<'a> Model<'a> {
                         for value in row {
                             match value {
                                 ArrayNode::Number(value) => {
-                                    accumulate(&mut sum, &mut sumsq, &mut count, value);
+                                    values.push(value);
                                 }
                                 ArrayNode::Error(error) => {
                                     return CalcResult::Error {
@@ -367,7 +334,7 @@ impl<'a> Model<'a> {
             }
         }
 
-        if count <= 1 {
+        if values.len() <= 1 {
             return CalcResult::new_error(
                 Error::DIV,
                 cell,
@@ -375,12 +342,8 @@ impl<'a> Model<'a> {
             );
         }
 
-        let n = count as f64;
-        let mut var = (sumsq - (sum * sum) / n) / (n - 1.0);
-
-        if var < 0.0 && var > -1e-12 {
-            var = 0.0;
-        }
+        let n = values.len() as f64;
+        let var = sum_of_squared_deviations(&values) / (n - 1.0);
 
         CalcResult::Number(var)
     }
@@ -390,21 +353,12 @@ impl<'a> Model<'a> {
             return CalcResult::new_args_number_error(cell);
         }
 
-        let mut sum = 0.0;
-        let mut sumsq = 0.0;
-        let mut count: u64 = 0;
-
-        #[inline]
-        fn accumulate(sum: &mut f64, sumsq: &mut f64, count: &mut u64, value: f64) {
-            *sum += value;
-            *sumsq += value * value;
-            *count += 1;
-        }
+        let mut values: Vec<f64> = Vec::new();
 
         for arg in args {
             match self.evaluate_node_in_context(arg, cell) {
                 CalcResult::Number(value) => {
-                    accumulate(&mut sum, &mut sumsq, &mut count, value);
+                    values.push(value);
                 }
                 CalcResult::Range { left, right } => {
                     if left.sheet != right.sheet {
@@ -453,14 +407,14 @@ impl<'a> Model<'a> {
                                 column,
                             }) {
                                 CalcResult::Number(value) => {
-                                    accumulate(&mut sum, &mut sumsq, &mut count, value);
+                                    values.push(value);
                                 }
                                 CalcResult::String(_) => {
-                                    accumulate(&mut sum, &mut sumsq, &mut count, 0.0);
+                                    values.push(0.0);
                                 }
                                 CalcResult::Boolean(value) => {
                                     let val = if value { 1.0 } else { 0.0 };
-                                    accumulate(&mut sum, &mut sumsq, &mut count, val);
+                                    values.push(val);
                                 }
                                 error @ CalcResult::Error { .. } => return error,
                                 _ => {
@@ -475,7 +429,7 @@ impl<'a> Model<'a> {
                         for value in row {
                             match value {
                                 ArrayNode::Number(value) => {
-                                    accumulate(&mut sum, &mut sumsq, &mut count, value);
+                                    values.push(value);
                                 }
                                 ArrayNode::Error(error) => {
                                     return CalcResult::Error {
@@ -498,7 +452,7 @@ impl<'a> Model<'a> {
             }
         }
 
-        if count == 0 {
+        if values.is_empty() {
             return CalcResult::new_error(
                 Error::DIV,
                 cell,
@@ -506,12 +460,8 @@ impl<'a> Model<'a> {
             );
         }
 
-        let n = count as f64;
-        let mut var = (sumsq - (sum * sum) / n) / n;
-
-        if var < 0.0 && var > -1e-12 {
-            var = 0.0;
-        }
+        let n = values.len() as f64;
+        let var = sum_of_squared_deviations(&values) / n;
 
         CalcResult::Number(var)
     }

@@ -430,3 +430,30 @@ fn locale_wrong_format() {
     assert_eq!(model._get_text("B19"), *"624.49979984");
     assert_eq!(model._get_text("B20"), *"509.901951359");
 }
+
+#[test]
+fn spread_of_equal_values_is_exactly_zero() {
+    let mut model = new_empty_model();
+    model._set("A1", "Value");
+    model._set("B1", "Tag");
+    for row in 2..5 {
+        model._set(&format!("A{row}"), "4567.891");
+        model._set(&format!("B{row}"), "x");
+    }
+    model._set("D1", "Tag");
+    model._set("D2", "x");
+
+    model._set("F1", "=DVAR(A1:B4, 1, D1:D2)");
+    model._set("F2", "=DVARP(A1:B4, 1, D1:D2)");
+    model._set("F3", "=DSTDEV(A1:B4, 1, D1:D2)");
+    model._set("F4", "=DSTDEVP(A1:B4, 1, D1:D2)");
+    for row in 1..5 {
+        model._set(&format!("G{row}"), &format!("=F{row}=0"));
+    }
+    model.evaluate();
+
+    for row in 1..5 {
+        assert_eq!(model._get_text(&format!("F{row}")), *"0");
+        assert_eq!(model._get_text(&format!("G{row}")), *"TRUE");
+    }
+}
